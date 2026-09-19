@@ -108,6 +108,19 @@ if [[ -z $default ]]; then
     done
 fi
 
+# Claude Code records trust for a git worktree on its main checkout. An untrusted
+# repo means the dispatched agent sits at the trust prompt until a human clicks.
+print_trust() {
+    local common main
+    common=$(git rev-parse --path-format=absolute --git-common-dir)
+    main=$(dirname "$common")
+    [[ $(basename "$common") == .git ]] || main=$(git rev-parse --show-toplevel)
+    command -v jq >/dev/null 2>&1 && [[ -f $HOME/.claude.json ]] || return 0
+    if [[ $(jq -r --arg p "$main" '.projects[$p].hasTrustDialogAccepted // false' "$HOME/.claude.json" 2>/dev/null) != true ]]; then
+        printf 'claude trust: NOT accepted for %s - a dispatched agent will wait at the trust prompt until I click it\n' "$main"
+    fi
+}
+
 dirty=$(git status --porcelain 2>/dev/null)
 dirty_count=0
 [[ -n $dirty ]] && dirty_count=$(printf '%s\n' "$dirty" | wc -l | tr -d ' ')
@@ -123,6 +136,7 @@ print_dirty() {
 if [[ -n $branch && $branch == "$default" ]]; then
     verdict DISPATCH "on default branch '$default' of an Orca-managed checkout - nothing here to continue"
     printf 'branch: %s (default: %s)\n' "$branch" "$default"
+    print_trust
     print_dirty
     [[ $dirty_count -gt 0 ]] && printf 'note: uncommitted changes stay in this checkout; the new worktree starts clean\n'
     exit 0
@@ -138,6 +152,7 @@ if command -v gh >/dev/null 2>&1 && [[ -n $branch ]]; then
     [[ -z $pr ]] && pr="none"
 fi
 printf 'pr: %s\n' "$pr"
+print_trust
 
 print_dirty
 

@@ -48,4 +48,6 @@ EOF
 
 完成标志：create 返回 `"ok": true`。回我一行 —— worktree 名 + 路径 + 分支 + base —— 然后**这边收工**：这件事从此归新 agent，这边的 checkout 保持原样。
 
+gate 输出里有 `claude trust: NOT accepted` -> 照样派，但回我的那一行里说清：新 agent 会停在 trust 提示上，等我去点。
+
 create 失败 -> 把错误原样给我，停下等我定。

@@ -84,6 +84,15 @@ mkshim "$T/main" managed; mkrepo "$T/main"
 check "managed, default branch, clean -> DISPATCH" "$(gate "$T/main")" \
     "verdict: DISPATCH" "branch: main (default: main)" "dirty: 0 files"
 
+mkdir -p "$T/home"
+echo '{"projects":{}}' > "$T/home/.claude.json"
+check "repo never trusted in Claude Code -> warns" "$(HOME="$T/home" gate "$T/main")" \
+    "verdict: DISPATCH" "claude trust: NOT accepted for $(cd "$T/main/repo" && pwd -P)"
+printf '{"projects":{"%s":{"hasTrustDialogAccepted":true}}}' "$(cd "$T/main/repo" && pwd -P)" > "$T/home/.claude.json"
+out=$(HOME="$T/home" gate "$T/main")
+[[ $out != *"claude trust"* ]]
+check "repo trusted -> no warning" "$?" "0"
+
 echo wip > "$T/main/repo/scratch.txt"
 check "managed, default branch, dirty -> DISPATCH + note" "$(gate "$T/main")" \
     "verdict: DISPATCH" "dirty: 1 files" "?? scratch.txt" "uncommitted changes stay"

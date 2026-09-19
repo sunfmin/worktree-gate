@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Stand-in for the orca CLI. Behaviour comes from ../mode; every call is appended
+# to ../orca.log, one ARG per line, so tests can assert on it. Modes:
+#   managed    - this checkout is an Orca worktree
+#   unmanaged  - Orca is up but doesn't know the repo; `repo add` succeeds -> managed
+#   add-fails  - like unmanaged, but `repo add` is rejected
+#   down       - Orca runtime unreachable
+#   hang       - never answers
+here=$(cd "$(dirname "$0")/.." && pwd)
+{ echo "=== CALL"; for a in "$@"; do printf 'ARG: %s\n' "$a"; done; } >> "$here/orca.log"
+mode=$(cat "$here/mode")
+[ "$mode" = hang ] && sleep 30
+if [ "$mode" = down ]; then
+    echo '{ "ok": false, "error": { "code": "runtime_unreachable", "message": "Orca is not running" } }'
+    exit 1
+fi
+case "${1:-} ${2:-}" in
+  "worktree current")
+    if [ "$mode" = managed ]; then
+      echo '{ "ok": true, "result": { "worktree": { "path": "'"$PWD"'" } } }'
+    else
+      echo '{ "ok": false, "error": { "code": "selector_not_found", "message": "No Orca-managed worktree contains the current directory" } }'
+    fi ;;
+  "repo add")
+    if [ "$mode" = unmanaged ]; then
+      echo managed > "$here/mode"
+      echo '{ "ok": true, "result": { "repo": { "id": "fake-repo" } } }'
+    else
+      echo '{ "ok": false, "error": { "code": "invalid_path", "message": "not a project" } }'
+    fi ;;
+  "worktree create")
+    name=x; while [ $# -gt 0 ]; do [ "$1" = --name ] && name=$2; shift; done
+    echo '{ "ok": true, "result": { "worktree": { "id": "fake::/tmp/wt/'"$name"'", "path": "/tmp/wt/'"$name"'", "branch": "refs/heads/'"$name"'", "displayName": "'"$name"'", "baseRef": "origin/main" }, "agentTerminalHandle": "term-1" } }' ;;
+  *) echo '{ "ok": true, "result": {} }' ;;
+esac
